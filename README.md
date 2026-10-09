@@ -88,7 +88,21 @@ Tras el despliegue, poner la URL de la API (`API_URI` en los outputs) en `web/co
 | POST | `/api/casos/{id}/analizar` | Ejecuta el pipeline y devuelve clasificación, competencia y borrador |
 | POST | `/api/casos/{id}/decision` | Registra la decisión humana (estado) |
 | GET | `/api/reglas` | Reglas de jurisdicción |
+| PUT | `/api/state` | Reemplaza todo el estado (casos + reglas) — paridad con el guardado local |
+| POST | `/api/reset` | Restaura los datos de ejemplo |
 | GET | `/api/audit` | Registro de auditoría |
+
+## Modo en vivo vs. modo local
+
+El frontend desplegado funciona **igual que el prototipo local**, con CRUD completo
+(crear/editar/eliminar casos y reglas, restaurar datos), pero persistiendo en el backend:
+
+- **En vivo (por defecto):** `web/config.js` apunta a la API de Azure. Los cambios se
+  guardan en el backend (`PUT /api/state`, `POST /api/reset`) y la competencia usa el
+  índice de Azure AI Search.
+- **Local / demo (por si la API no está):** abrir el sitio con **`?demo=1`** (o `?local=1`).
+  Usa `localStorage` del navegador, sin backend — idnéntico al prototipo original.
+- **Otra API:** `?api=https://mi-backend` para apuntar a otro backend.
 
 ## Seguridad y gobierno
 

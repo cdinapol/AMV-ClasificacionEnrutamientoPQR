@@ -21,6 +21,53 @@ def _search_client():
     )
 
 
+def ensure_index() -> bool:
+    """Crea el índice de reglas si no existe. Best-effort; devuelve True si quedó listo."""
+    if not config.search_enabled():
+        return False
+    try:
+        from azure.identity import DefaultAzureCredential
+        from azure.search.documents.indexes import SearchIndexClient
+        from azure.search.documents.indexes.models import (
+            SearchIndex, SimpleField, SearchableField, SearchFieldDataType,
+        )
+        client = SearchIndexClient(config.SEARCH_ENDPOINT, DefaultAzureCredential())
+        existing = {i.name for i in client.list_indexes()}
+        if config.SEARCH_INDEX not in existing:
+            index = SearchIndex(
+                name=config.SEARCH_INDEX,
+                fields=[
+                    SimpleField(name="id", type=SearchFieldDataType.String, key=True),
+                    SearchableField(name="entidad", type=SearchFieldDataType.String, filterable=True),
+                    SearchableField(name="texto", type=SearchFieldDataType.String),
+                    SimpleField(name="vigente", type=SearchFieldDataType.Boolean, filterable=True),
+                ],
+            )
+            client.create_index(index)
+        return True
+    except Exception as exc:
+        print(f"[search] no se pudo crear el índice ({exc}).")
+        return False
+
+
+def sync_reglas(reglas: list[dict]) -> None:
+    """Sincroniza las reglas al índice (best-effort)."""
+    if not config.search_enabled():
+        return
+    try:
+        if not ensure_index():
+            return
+        docs = [
+            {"id": r["id"], "entidad": r.get("entidad", ""),
+             "texto": r.get("texto", ""), "vigente": bool(r.get("vigente", True))}
+            for r in reglas
+        ]
+        if docs:
+            _search_client().merge_or_upload_documents(docs)
+    except Exception as exc:
+        print(f"[search] no se pudo sincronizar reglas ({exc}).")
+
+
 def _tokens(s: str) -> set[str]:
     return {t for t in re.findall(r"\w+", s.lower()) if len(t) > 3}
 

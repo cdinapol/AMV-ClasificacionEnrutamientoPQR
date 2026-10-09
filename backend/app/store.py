@@ -58,6 +58,16 @@ class _MemoryStore:
     def list_audit(self) -> list[AuditEntry]:
         return list(self._audit)
 
+    # estado completo (para paridad con el modo local)
+    def replace_all(self, casos: list[Caso], reglas: list[Regla]) -> None:
+        self._casos = {c.id: c.model_copy(deep=True) for c in casos}
+        self._reglas = {r.id: r.model_copy(deep=True) for r in reglas}
+
+    def reset(self) -> None:
+        self._casos = {c.id: c.model_copy(deep=True) for c in SEED_CASOS}
+        self._reglas = {r.id: r.model_copy(deep=True) for r in SEED_REGLAS}
+        self._audit.clear()
+
 
 class _TableStore:
     """Persistencia en Azure Table Storage (identity-based, sin claves)."""
@@ -132,6 +142,20 @@ class _TableStore:
     def list_audit(self) -> list[AuditEntry]:
         rows = [AuditEntry(**json.loads(e["payload"])) for e in self._t_audit.list_entities()]
         return sorted(rows, key=lambda a: a.ts, reverse=True)[:200]
+
+    # estado completo (para paridad con el modo local)
+    def replace_all(self, casos: list[Caso], reglas: list[Regla]) -> None:
+        for c in list(self.list_casos()):
+            self.delete_caso(c.id)
+        for r in list(self.list_reglas()):
+            self.delete_regla(r.id)
+        for c in casos:
+            self.upsert_caso(c)
+        for r in reglas:
+            self.upsert_regla(r)
+
+    def reset(self) -> None:
+        self.replace_all(list(SEED_CASOS), list(SEED_REGLAS))
 
 
 def _build_store():

@@ -1,12 +1,26 @@
 from __future__ import annotations
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-from . import config, pipeline
+from . import config, pipeline, search
 from .models import Caso, Regla, Decision
 from .store import store, audit
 
 app = FastAPI(title="AMV · Clasificación y Enrutamiento de PQR", version="1.0.0")
+
+
+class EstadoCompleto(BaseModel):
+    casos: list[Caso]
+    reglas: list[Regla]
+
+
+@app.on_event("startup")
+def _bootstrap_index() -> None:
+    try:
+        search.sync_reglas([r.model_dump() for r in store.list_reglas()])
+    except Exception as exc:
+        print(f"[startup] bootstrap de índice omitido: {exc}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -133,3 +147,21 @@ def borrar_regla(regla_id: str) -> dict:
 @app.get("/api/audit")
 def list_audit() -> list[dict]:
     return [a.model_dump() for a in store.list_audit()]
+
+
+@app.put("/api/state")
+def replace_state(estado: EstadoCompleto) -> dict:
+    """Reemplaza todo el estado (paridad con el guardado local del prototipo)."""
+    store.replace_all(estado.casos, estado.reglas)
+    search.sync_reglas([r.model_dump() for r in estado.reglas])
+    audit("sync_estado", detalle=f"casos={len(estado.casos)} reglas={len(estado.reglas)}")
+    return {"ok": True, "casos": len(estado.casos), "reglas": len(estado.reglas)}
+
+
+@app.post("/api/reset")
+def reset_estado() -> dict:
+    """Restaura los datos de ejemplo (equivale a 'Restaurar datos' del prototipo)."""
+    store.reset()
+    search.sync_reglas([r.model_dump() for r in store.list_reglas()])
+    audit("reset", detalle="datos de ejemplo restaurados")
+    return {"ok": True}
