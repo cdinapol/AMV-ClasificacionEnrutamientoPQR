@@ -7,6 +7,9 @@ param environmentName string
 @description('Región de los recursos.')
 param location string = resourceGroup().location
 
+@description('Región del servicio Azure AI Search (separada por capacidad; eastus2 puede estar saturado).')
+param searchLocation string = 'eastus'
+
 @description('Intentar desplegar MAI-DS-R1 (competencia). Si la cuota/modelo no está disponible, dejar en false.')
 param deployMaiDsR1 bool = false
 
@@ -109,7 +112,7 @@ resource depMaiDsR1 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01
 // ---------------- Azure AI Search ----------------
 resource search 'Microsoft.Search/searchServices@2024-06-01-preview' = {
   name: '${prefix}-srch-${token}'
-  location: location
+  location: searchLocation
   tags: tags
   sku: { name: 'basic' }
   properties: {
@@ -241,6 +244,29 @@ resource raSbSend 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+// ---------------- Azure Container Registry (build remoto + pull) ----------------
+resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
+  name: toLower('${prefix}acr${token}')
+  location: location
+  tags: tags
+  sku: { name: 'Basic' }
+  properties: {
+    adminUserEnabled: false
+  }
+}
+
+var roleAcrPull = '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
+
+resource raAcrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(acr.id, uami.id, roleAcrPull)
+  scope: acr
+  properties: {
+    principalId: uami.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleAcrPull)
+  }
+}
+
 // ---------------- Container Apps ----------------
 resource acaEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: '${prefix}-cae-${token}'
@@ -269,6 +295,9 @@ resource acaApi 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: acaEnv.id
     configuration: {
       activeRevisionsMode: 'Single'
+      registries: [
+        { server: acr.properties.loginServer, identity: uami.id }
+      ]
       ingress: {
         external: true
         targetPort: 8000
@@ -298,10 +327,10 @@ resource acaApi 'Microsoft.App/containerApps@2024-03-01' = {
           ]
         }
       ]
-      scale: { minReplicas: 1, maxReplicas: 3 }
+      scale: { minReplicas: 1, maxReplicas: 1 }
     }
   }
-  dependsOn: [ depMai, raOpenAi, raTable, raBlob, raSearchIndex ]
+  dependsOn: [ depMai, raOpenAi, raTable, raBlob, raSearchIndex, raAcrPull ]
 }
 
 // ---------------- Static Web App (frontend) ----------------
@@ -317,6 +346,7 @@ resource swa 'Microsoft.Web/staticSites@2023-12-01' = {
 }
 
 output AZURE_LOCATION string = location
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = acr.properties.loginServer
 output AI_SERVICES_ENDPOINT string = 'https://${ai.name}.openai.azure.com'
 output AI_INFERENCE_ENDPOINT string = 'https://${ai.name}.services.ai.azure.com/models'
 output SEARCH_ENDPOINT string = 'https://${search.name}.search.windows.net'

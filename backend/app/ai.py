@@ -106,9 +106,13 @@ def determinar_competencia(texto: str, reglas: list[dict]) -> dict | None:
         return None
     try:
         start, end = out.find("{"), out.rfind("}")
-        return json.loads(out[start:end + 1])
+        data = json.loads(out[start:end + 1])
     except Exception:
         return None
+    # El modelo a veces devuelve el id citado con corchetes del contexto RAG: [REG-014]
+    rid = str(data.get("reglaId", "")).strip().strip("[]").strip()
+    data["reglaId"] = rid
+    return data
 
 
 def redactar_borrador(texto: str, entidad: str, regla: dict | None) -> dict | None:
