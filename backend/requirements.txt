@@ -1,0 +1,11 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic>=2.12
+httpx<0.28
+openai==1.54.4
+azure-identity==1.19.0
+azure-ai-inference==1.0.0b9
+azure-search-documents==11.5.2
+azure-data-tables==12.5.0
+azure-storage-blob==12.24.0
+azure-ai-documentintelligence==1.0.0

@@ -1,1 +1,21 @@
+# azd
+.azure/
+
+# Python
+backend/.venv/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Node
+node_modules/
+
+# Entorno / secretos
+.env
+*.env
+!*.env.example
+
+# Editor / SO
 .vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMV · Clasificación y Enrutamiento de PQR — Prototipo Azure AI Foundry</title>
+<style>
+  :root{
+    --navy:#1b2a4a;
+    --navy-dark:#12203a;
+    --bg:#f3f5f9;
+    --card:#ffffff;
+    --line:#e2e6ee;
+    --text:#27324a;
+    --muted:#6b7488;
+
+    --mai-bg:#cff3e9;   --mai-border:#1f9d77; --mai-text:#0b3d2e;
+    --azure-bg:#f1efea; --azure-border:#8a8474; --azure-text:#4a4433;
+    --gov-bg:#e5dff5;   --gov-border:#6a4fb6; --gov-text:#3b2a63;
+
+    --ok:#1f9d77;
+    --warn:#b8860b;
+    --danger:#c0392b;
+    --radius:12px;
+    --shadow:0 2px 10px rgba(20,30,60,.08);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:"Segoe UI",Arial,Helvetica,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+  }
+
+  /* ---------- Top bar ---------- */
+  header.topbar{
+    background:linear-gradient(90deg,var(--navy-dark),var(--navy));
+    color:#fff;
+    padding:14px 22px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand .logo{
+    width:38px;height:38px;border-radius:8px;background:#fff;color:var(--navy);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;
+  }
+  .brand h1{font-size:16px;margin:0;font-weight:700;}
+  .brand p{margin:0;font-size:11.5px;color:#c7d0e6;}
+  .demo-tag{
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.25);
+    padding:3px 10px;border-radius:20px;font-size:11px;letter-spacing:.03em;
+  }
+
+  .model-legend{
+    display:flex;gap:8px;flex-wrap:wrap;padding:8px 22px;
+    background:#fff;border-bottom:1px solid var(--line);
+    font-size:11.5px;
+  }
+  .chip{
+    display:flex;align-items:center;gap:6px;
+    padding:4px 10px;border-radius:20px;border:1.5px solid;
+    font-weight:600;white-space:nowrap;
+  }
+  .chip small{font-weight:400;opacity:.8;margin-left:2px;}
+  .chip.mai{background:var(--mai-bg);border-color:var(--mai-border);color:var(--mai-text);}
+  .chip.azure{background:var(--azure-bg);border-color:var(--azure-border);color:var(--azure-text);}
+  .chip.gov{background:var(--gov-bg);border-color:var(--gov-border);color:var(--gov-text);}
+
+  /* ---------- Layout ---------- */
+  .layout{
+    display:grid;
+    grid-template-columns:280px 1fr;
+    gap:16px;
+    padding:16px 22px 30px;
+    flex:1;
+    max-width:1440px;
+    margin:0 auto;
+    width:100%;
+  }
+  @media (max-width:900px){ .layout{grid-template-columns:1fr;} }
+
+  .panel{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{padding:16px;height:fit-content;position:sticky;top:16px;}
+  .sidebar h3{margin:0 0 8px;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);}
+  .search-box{
+    display:flex;border:1.5px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:14px;
+  }
+  .search-box input{
+    border:none;padding:9px 10px;flex:1;font-size:13.5px;outline:none;
+  }
+  .search-box button{
+    border:none;background:var(--navy);color:#fff;padding:0 14px;cursor:pointer;font-size:13px;
+  }
+  .filters{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+  .filters select{
+    padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;color:var(--text);background:#fafbfd;
+  }
+  .case-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+  .case-list li{
+    padding:10px;border-radius:8px;border:1px solid var(--line);cursor:pointer;font-size:12.5px;
+  }
+  .case-list li.active{border-color:var(--navy);background:#eef1fa;}
+  .case-list li .case-id{font-weight:700;color:var(--navy);display:block;font-size:12px;}
+  .case-list li .case-desc{color:var(--muted);}
+
+  /* ---------- Main ---------- */
+  .main{display:flex;flex-direction:column;gap:14px;}
+  .tabs{display:flex;gap:4px;padding:10px 10px 0;flex-wrap:wrap;}
+  .tab-btn{
+    border:none;background:transparent;padding:10px 16px;font-size:13px;font-weight:600;
+    color:var(--muted);cursor:pointer;border-radius:8px 8px 0 0;
+  }
+  .tab-btn.active{color:var(--navy);background:#eef1fa;}
+  .tab-content{padding:16px 20px 22px;display:none;}
+  .tab-content.active{display:block;}
+
+  .result-item{
+    border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;cursor:pointer;
+    transition:border-color .15s;
+  }
+  .result-item:hover{border-color:var(--navy);}
+  .result-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;font-size:11px;}
+  .badge{padding:2px 8px;border-radius:20px;font-weight:700;}
+  .badge.tipo{background:#eef1fa;color:var(--navy);}
+  .badge.canal{background:#fdeeea;color:#a4432b;}
+  .badge.conf-high{background:#e4f7ee;color:var(--ok);}
+  .badge.conf-mid{background:#fff6df;color:var(--warn);}
+  .badge.conf-low{background:#fbe7e5;color:var(--danger);}
+  .badge.time{background:#f1efea;color:#5a5340;}
+  .badge.estado{background:#e5dff5;color:var(--gov-text);}
+  .result-text{font-size:13.5px;line-height:1.5;}
+  .result-text mark{background:#ffe89e;padding:0 2px;border-radius:3px;}
+
+  .segment-detail{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;}
+  @media (max-width:1100px){ .segment-detail{grid-template-columns:1fr;} }
+
+  .transcript-box{
+    background:#fafbfd;border:1px solid var(--line);border-radius:10px;padding:14px;font-size:13.5px;line-height:1.7;
+  }
+  .transcript-box mark{background:#ffe89e;border-radius:3px;padding:0 2px;}
+
+  .card-field{
+    display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13px;gap:10px;
+  }
+  .card-field:last-child{border-bottom:none;}
+  .field-name{color:var(--muted);}
+  .field-value{font-weight:700;text-align:right;}
+  .conf-pill{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:8px;white-space:nowrap;}
+  .conf-pill.high{background:#e4f7ee;color:var(--ok);}
+  .conf-pill.mid{background:#fff6df;color:var(--warn);}
+  .conf-pill.low{background:#fbe7e5;color:var(--danger);}
+
+  .corr-box{
+    margin-top:14px;padding:12px;border-radius:10px;font-size:12.5px;
+  }
+  .corr-box.match{background:#e4f7ee;border:1px solid var(--ok);color:#0b3d2e;}
+  .corr-box.nomatch{background:#fbe7e5;border:1px solid var(--danger);color:#5c1f18;}
+
+  .synth-panel{}
+  .synth-actions{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+  .btn{
+    border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;
+  }
+  .btn-primary{background:var(--mai-border);color:#fff;}
+  .btn-secondary{background:#eef1fa;color:var(--navy);}
+  .btn:disabled{opacity:.6;cursor:not-allowed;}
+  .spinner{
+    width:16px;height:16px;border-radius:50%;border:2.5px solid #cfe;border-top-color:var(--mai-border);
+    animation:spin 0.8s linear infinite;display:inline-block;vertical-align:middle;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .report-box{
+    background:#fafbfd;border:1px solid var(--line);border-radius:10px;padding:16px;font-size:13.5px;line-height:1.75;
+  }
+  .report-box textarea{
+    width:100%;min-height:220px;border:1px solid var(--line);border-radius:8px;padding:12px;font-size:13.5px;
+    font-family:inherit;line-height:1.7;
+  }
+  .cite{
+    color:var(--mai-text);background:var(--mai-bg);border:1px solid var(--mai-border);
+    padding:0 5px;border-radius:5px;font-size:11.5px;font-weight:700;cursor:pointer;
+  }
+  .report-footer{display:flex;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:10px;}
+  .groundedness{font-size:12px;color:var(--muted);}
+  .review-check{display:flex;align-items:center;gap:8px;font-size:12.5px;}
+
+  .custody-log{
+    margin-top:16px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;
+  }
+  .custody-log ul{margin:6px 0 0;padding-left:16px;}
+  .custody-log li{margin-bottom:3px;}
+
+  /* ---------- CRUD: gestión de datos ---------- */
+  .manage-block{margin-bottom:26px;}
+  .manage-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px;}
+  .manage-header h3{margin:0;font-size:13.5px;color:var(--navy);}
+  .data-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px;}
+  .data-table th,.data-table td{padding:8px 7px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;}
+  .data-table th{color:var(--muted);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;}
+  .data-table td.actions{white-space:nowrap;}
+  .data-table button{border:none;background:none;cursor:pointer;font-size:12px;padding:3px 7px;border-radius:6px;}
+  .data-table button.edit{color:var(--navy);}
+  .data-table button.edit:hover{background:#eef1fa;}
+  .data-table button.delete{color:var(--danger);}
+  .data-table button.delete:hover{background:#fbe7e5;}
+  .data-table tr:hover{background:#fafbfd;}
+  .data-table tr.flash{animation:flash 1.6s ease-out;}
+  @keyframes flash{ 0%{background:#fff6df;} 100%{background:transparent;} }
+  .mini-form{
+    background:#fafbfd;border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0 6px;
+    display:grid;grid-template-columns:repeat(4,1fr);gap:10px 12px;
+  }
+  .mini-form label{font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-weight:600;}
+  .mini-form input,.mini-form textarea,.mini-form select{
+    padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;font-family:inherit;font-weight:400;color:var(--text);
+  }
+  .mini-form .full{grid-column:1/-1;}
+  .mini-form textarea{min-height:56px;resize:vertical;}
+  .mini-form .checkbox-field{flex-direction:row;align-items:center;gap:6px;}
+  .mini-form-actions{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end;}
+  @media (max-width:800px){ .mini-form{grid-template-columns:1fr 1fr;} }
+
+  footer.disclaimer{
+    text-align:center;font-size:11px;color:var(--muted);padding:14px;
+  }
+
+  .empty-state{color:var(--muted);font-size:13px;padding:30px 10px;text-align:center;}
+
+  /* ---------- Arquitectura ---------- */
+  .arch-panel h3{margin:22px 0 10px;font-size:13.5px;color:var(--navy);}
+  .arch-panel h3:first-child{margin-top:0;}
+  .arch-panel p.lead{font-size:12.5px;color:var(--muted);margin:0 0 6px;}
+  .diagram-box{
+    background:#fafbfd;border:1px solid var(--line);border-radius:10px;padding:16px;
+    overflow-x:auto;
+  }
+  .diagram-box .mermaid{display:flex;justify-content:center;min-width:640px;}
+
+  /* ---------- Paso a paso ---------- */
+  .steps{list-style:none;margin:0;padding:0;counter-reset:step;}
+  .steps > li{
+    position:relative;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-left:3px solid var(--navy);
+    border-radius:10px;
+    padding:14px 16px 14px 58px;
+    margin:0 0 12px;
+    box-shadow:var(--shadow);
+  }
+  .steps > li::before{
+    counter-increment:step;
+    content:counter(step);
+    position:absolute;left:14px;top:14px;
+    width:30px;height:30px;border-radius:50%;
+    background:var(--navy);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:14px;
+  }
+  .steps > li h4{
+    margin:2px 0 6px;font-size:13px;color:var(--navy);font-weight:700;
+  }
+  .steps > li p{margin:0 0 6px;font-size:12.5px;line-height:1.5;color:var(--text);}
+  .steps > li p:last-child{margin-bottom:0;}
+  .steps .svc{
+    display:inline-block;margin-top:6px;margin-right:4px;padding:3px 9px;border-radius:20px;
+    font-size:10.5px;font-weight:600;border:1.5px solid;
+  }
+  .steps .svc.mai{background:var(--mai-bg);border-color:var(--mai-border);color:var(--mai-text);}
+  .steps .svc.azure{background:var(--azure-bg);border-color:var(--azure-border);color:var(--azure-text);}
+  .steps .svc.gov{background:var(--gov-bg);border-color:var(--gov-border);color:var(--gov-text);}
+  .steps code{
+    background:#eef1f7;border:1px solid var(--line);border-radius:5px;
+    padding:1px 5px;font-size:11.5px;color:var(--navy);
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">AMV</div>
+    <div>
+      <h1>Clasificación y Enrutamiento de PQR · Bandeja de Triage</h1>
+      <p>Arquitectura de referencia sobre Azure AI Foundry (caso full MAI) · Autorregulador del Mercado de Valores</p>
+    </div>
+  </div>
+  <div class="demo-tag">Prototipo — datos simulados</div>
+</header>
+
+<div class="model-legend">
+  <span class="chip mai">🧭 Clasificación (tipo · tipología · asunto) <small>MAI-1</small></span>
+  <span class="chip mai">⚖️ Determinación de competencia <small>MAI-DS-R1</small></span>
+  <span class="chip mai">✍️ Borrador de respuesta <small>MAI-1</small></span>
+  <span class="chip azure">🔎 Reglas de jurisdicción <small>Azure AI Search</small></span>
+  <span class="chip gov">🛡️ Gobierno <small>Microsoft Purview · Entra ID</small></span>
+</div>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="panel sidebar">
+    <h3>Buscar en la bandeja de PQR</h3>
+    <div class="search-box">
+      <input id="searchInput" type="text" placeholder="asunto, remitente, ID…" value="">
+      <button onclick="runSearch()">Buscar</button>
+    </div>
+    <div class="filters">
+      <select id="filterTipo">
+        <option value="">Todos los tipos</option>
+        <option value="Queja">Queja</option>
+        <option value="Consulta">Consulta</option>
+        <option value="Solicitud">Solicitud</option>
+      </select>
+      <select id="filterCanal">
+        <option value="">Todos los canales</option>
+        <option value="Correo">Correo</option>
+        <option value="Formulario web">Formulario web</option>
+        <option value="Otro">Otro</option>
+      </select>
+      <select id="filterConfidence">
+        <option value="">Cualquier confianza</option>
+        <option value="high">Alta (≥ 85%)</option>
+        <option value="mid">Media (65–84%)</option>
+        <option value="low">Baja (&lt; 65%)</option>
+      </select>
+    </div>
+
+    <h3>Casos PQR</h3>
+    <ul class="case-list" id="caseList"></ul>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="panel main">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tab-results" onclick="switchTab('tab-results')">Bandeja de PQR</button>
+      <button class="tab-btn" data-tab="tab-detail" onclick="switchTab('tab-detail')">Detalle y clasificación</button>
+      <button class="tab-btn" data-tab="tab-synth" onclick="switchTab('tab-synth')">Borrador de respuesta (MAI-1)</button>
+      <button class="tab-btn" data-tab="tab-manage" onclick="switchTab('tab-manage')">Gestionar datos</button>
+      <button class="tab-btn" data-tab="tab-arch" onclick="switchTab('tab-arch')">Arquitectura</button>
+    </div>
+
+    <!-- RESULTS TAB -->
+    <section class="tab-content active" id="tab-results">
+      <div id="resultsContainer"></div>
+    </section>
+
+    <!-- DETAIL TAB -->
+    <section class="tab-content" id="tab-detail">
+      <div id="detailContainer">
+        <div class="empty-state">Selecciona un caso de la bandeja para ver su clasificación y competencia.</div>
+      </div>
+    </section>
+
+    <!-- SYNTHESIS TAB -->
+    <section class="tab-content" id="tab-synth">
+      <div class="synth-panel">
+        <p style="font-size:13px;color:var(--muted);margin-top:0;">
+          El Foundry Agent Service toma la clasificación y la entidad competente del caso
+          seleccionado y solicita a <strong>MAI-1</strong> un borrador de respuesta o
+          recomendación de tratamiento citado. El resultado siempre requiere revisión humana
+          antes de enviarse al ciudadano.
+        </p>
+        <div class="synth-actions">
+          <button class="btn btn-primary" id="genBtn" onclick="generateSynthesis()">🧠 Generar borrador con MAI-1</button>
+          <span id="genStatus" style="font-size:12.5px;color:var(--muted);"></span>
+        </div>
+        <div id="reportContainer"></div>
+      </div>
+    </section>
+
+    <!-- MANAGE (CRUD) TAB -->
+    <section class="tab-content" id="tab-manage">
+      <p style="font-size:12.5px;color:var(--muted);margin-top:0;">
+        Datos guardados localmente en este navegador (localStorage) — no se envían a ningún servidor.
+        Los cambios se reflejan de inmediato en la Bandeja y el Detalle.
+      </p>
+
+      <div class="manage-block">
+        <div class="manage-header">
+          <h3>Casos PQR</h3>
+          <button class="btn btn-secondary" onclick="showTicketForm()">+ Nuevo caso</button>
+        </div>
+        <div id="ticketFormWrap"></div>
+        <table class="data-table" id="ticketTable"></table>
+      </div>
+
+      <div class="manage-block">
+        <div class="manage-header">
+          <h3>Reglas de jurisdicción</h3>
+          <button class="btn btn-secondary" onclick="showRuleForm()">+ Nueva regla</button>
+        </div>
+        <div id="ruleFormWrap"></div>
+        <table class="data-table" id="ruleTable"></table>
+      </div>
+
+      <button class="btn btn-secondary" onclick="resetDemoData()">↺ Restaurar datos de ejemplo</button>
+    </section>
+
+    <!-- ARCHITECTURE TAB -->
+    <section class="tab-content" id="tab-arch">
+      <div class="arch-panel">
+        <h3>Arquitectura de referencia en Azure (caso full MAI)</h3>
+        <p class="lead">Sin comparación con OpenAI: la familia MAI cubre los tres componentes de lenguaje del flujo —
+          <strong>MAI-1</strong> para clasificación y para el borrador de respuesta, y <strong>MAI-DS-R1</strong> para
+          el razonamiento de competencia. El resto son servicios de infraestructura de Azure, agnósticos al modelo.</p>
+        <div class="diagram-box">
+          <div class="mermaid">
+flowchart TB
+    subgraph ING["1. Ingesta multicanal"]
+        MAIL["Correo (Exchange / Graph)"]
+        WEB["Formulario web"]
+        OTHER["Otros canales"]
+        QUEUE["Azure Service Bus / Queue&lt;br/&gt;Desacople por colas"]
+        MAIL --&gt; QUEUE
+        WEB --&gt; QUEUE
+        OTHER --&gt; QUEUE
+    end
+
+    subgraph PRE["2. Preprocesamiento"]
+        LANG["Azure AI Language&lt;br/&gt;Detección de idioma"]
+        DI["Azure AI Document Intelligence&lt;br/&gt;OCR de adjuntos"]
+    end
+
+    subgraph CLA["3. Clasificación"]
+        MAI1CLA["MAI-1&lt;br/&gt;Tipo · tipología · asunto&lt;br/&gt;(salida estructurada + confianza)"]
+    end
+
+    subgraph COMP["4. Determinación de competencia"]
+        SEARCH[("Azure AI Search&lt;br/&gt;Reglas de jurisdicción versionadas")]
+        AGENT["Azure AI Foundry Agent Service&lt;br/&gt;Agente RAG orquestador"]
+        MAIDSR1["MAI-DS-R1&lt;br/&gt;Razonamiento de competencia&lt;br/&gt;(entidad + regla citada + confianza)"]
+    end
+
+    subgraph ENRUT["5. Enrutamiento"]
+        TOOLS["Agent tools / functions"]
+        CRM[("CRM / Ticketing&lt;br/&gt;(gestión de casos existente)")]
+    end
+
+    subgraph RESP["6. Generación de borrador"]
+        MAI1RESP["MAI-1&lt;br/&gt;Borrador de respuesta o&lt;br/&gt;recomendación de tratamiento (citado)"]
+    end
+
+    subgraph SEG["7. Seguimiento (transversal)"]
+        ESTADO[("Estado · SLA · historial de decisiones")]
+    end
+
+    subgraph GOV["Gobierno, seguridad y cumplimiento (transversal)"]
+        PURVIEW["Microsoft Purview&lt;br/&gt;clasificación · datos personales"]
+        RBAC["Entra ID · RBAC"]
+        EVAL["Evaluaciones Foundry&lt;br/&gt;exactitud · groundedness"]
+        AUDIT["Auditoría de decisiones"]
+    end
+
+    QUEUE --&gt; LANG --&gt; DI --&gt; MAI1CLA
+    MAI1CLA --&gt; AGENT
+    AGENT --&gt; SEARCH
+    SEARCH --&gt; AGENT
+    AGENT --&gt; MAIDSR1
+    MAIDSR1 --&gt; TOOLS
+    TOOLS --&gt; CRM
+    CRM --&gt; MAI1RESP
+    MAI1RESP --&gt; ESTADO
+
+    classDef mai fill:#cff3e9,stroke:#1f9d77,stroke-width:2px,color:#0b3d2e;
+    classDef infra fill:#f1efea,stroke:#6b6b6b,stroke-width:1.5px,color:#333;
+    classDef gov fill:#e5dff5,stroke:#6a4fb6,stroke-width:1.5px,color:#3b2a63;
+
+    class MAI1CLA,MAIDSR1,MAI1RESP mai;
+    class MAIL,WEB,OTHER,QUEUE,LANG,DI,SEARCH,AGENT,TOOLS,CRM,ESTADO infra;
+    class PURVIEW,RBAC,EVAL,AUDIT gov;
+          </div>
+        </div>
+
+        <h3>Diagrama lógico del flujo (una PQR)</h3>
+        <div class="diagram-box">
+          <div class="mermaid">
+sequenceDiagram
+    actor Ciudadano
+    participant Canal as Canal de ingesta (correo/web)
+    participant Agent as Foundry Agent Service
+    participant MAI1 as MAI-1 (clasificación)
+    participant MAIDSR1 as MAI-DS-R1 (competencia)
+    participant CRM as CRM / Ticketing
+    participant MAI1R as MAI-1 (borrador de respuesta)
+    actor Analista as Analista / revisor
+
+    Ciudadano-&gt;&gt;Canal: Envía queja / consulta / solicitud
+    Canal-&gt;&gt;Agent: Caso encolado y preprocesado
+    Agent-&gt;&gt;MAI1: Clasifica tipo, tipología y asunto
+    MAI1--&gt;&gt;Agent: Clasificación + confianza
+    Agent-&gt;&gt;MAIDSR1: Determina entidad competente (RAG sobre reglas)
+    MAIDSR1--&gt;&gt;Agent: Entidad + regla citada + confianza
+    Agent-&gt;&gt;CRM: Enruta el caso al equipo/cola correcto
+    Agent-&gt;&gt;MAI1R: Solicita borrador de respuesta citado
+    MAI1R--&gt;&gt;Agent: Borrador + citas + groundedness
+    Agent--&gt;&gt;Analista: Presenta borrador para revisión
+    Analista-&gt;&gt;Agent: Aprueba / edita
+    Agent--&gt;&gt;Ciudadano: Envío de respuesta
+          </div>
+        </div>
+
+        <h3>Cómo funciona la aplicación paso a paso</h3>
+        <p class="lead">Recorrido de una PQR de principio a fin, tal como lo vive el analista en la bandeja de triage. Cada paso indica qué hace la app y qué servicio de Azure lo impulsaría en la solución real.</p>
+        <ol class="steps">
+          <li>
+            <h4>Ingesta multicanal</h4>
+            <p>La queja, consulta o solicitud llega por correo, formulario web u otro canal y se encola para su procesamiento, desacoplando la ingesta del resto del pipeline. En el prototipo esto ya viene precargado como datos de ejemplo.</p>
+            <span class="svc azure">Azure Service Bus / Queue</span>
+          </li>
+          <li>
+            <h4>Preprocesamiento</h4>
+            <p>Se detecta el idioma del texto y se aplica OCR a los adjuntos (capturas, cartas escaneadas) para dejar todo listo como texto normalizado.</p>
+            <span class="svc azure">Azure AI Language</span>
+            <span class="svc azure">Azure AI Document Intelligence</span>
+          </li>
+          <li>
+            <h4>Clasificación con MAI-1</h4>
+            <p>El modelo asigna <strong>tipo</strong> (queja/consulta/solicitud), <strong>tipología</strong> y <strong>asunto</strong> en salida estructurada, cada uno con su <strong>confianza</strong>.</p>
+            <p>En el prototipo: pestaña <em>Detalle y clasificación</em>, tarjeta de clasificación.</p>
+            <span class="svc mai">MAI-1 (clasificación)</span>
+          </li>
+          <li>
+            <h4>Determinación de competencia (RAG + MAI-DS-R1)</h4>
+            <p>Un agente consulta el índice de reglas de jurisdicción versionadas y le pide a <strong>MAI-DS-R1</strong> que determine la entidad competente (AMV u otra), citando la regla exacta que fundamenta la decisión.</p>
+            <p>Es la <strong>decisión de mayor riesgo</strong> del flujo: se recomienda validarla con un conjunto dorado antes de producción.</p>
+            <span class="svc azure">Azure AI Search</span>
+            <span class="svc mai">MAI-DS-R1 (competencia)</span>
+          </li>
+          <li>
+            <h4>Umbral de confianza y derivación manual</h4>
+            <p>Si la confianza de clasificación o de competencia cae por debajo del umbral configurado, el caso se deriva automáticamente a un analista para revisión manual antes de continuar.</p>
+            <span class="svc gov">Human-in-the-loop</span>
+          </li>
+          <li>
+            <h4>Enrutamiento</h4>
+            <p>Herramientas del agente asignan el caso al equipo o cola correcta en el sistema de gestión (CRM/ticketing), registrando el SLA aplicable.</p>
+            <p>En el prototipo: campos <code>equipo</code>, <code>estado</code> y <code>slaHoras</code> del caso.</p>
+            <span class="svc azure">Agent tools / CRM · Ticketing</span>
+          </li>
+          <li>
+            <h4>Generación del borrador de respuesta</h4>
+            <p>El analista solicita el borrador (pestaña <em>Borrador de respuesta</em>); el orquestador reúne la clasificación, la competencia y la regla citada, y <strong>MAI-1</strong> redacta una respuesta o recomendación de tratamiento con un valor de <em>groundedness</em>.</p>
+            <p>En el prototipo: función <code>generateSynthesis()</code> con citas <code>cite()</code> hacia la regla de jurisdicción.</p>
+            <span class="svc gov">Foundry Agent Service</span>
+            <span class="svc mai">MAI-1 (redacción)</span>
+          </li>
+          <li>
+            <h4>Revisión humana y aprobación</h4>
+            <p>El borrador <strong>no se envía</strong> hasta que el analista lo revisa, edita si es necesario y lo marca como aprobado. El human-in-the-loop es obligatorio, tanto para la competencia como para la respuesta.</p>
+            <p>En el prototipo: <code>onReviewToggle()</code> y <code>toggleEdit()</code>.</p>
+            <span class="svc gov">Revisión humana</span>
+          </li>
+          <li>
+            <h4>Seguimiento y auditoría</h4>
+            <p>Cada caso queda registrado con estado, SLA, historial de decisiones (incluida la del modelo) y auditoría completa; cada acción del analista se refleja en el panel de auditoría.</p>
+            <p>En el prototipo: función <code>logAudit()</code>.</p>
+            <span class="svc gov">Auditoría · Purview · Entra ID</span>
+          </li>
+        </ol>
+
+        <h3>Artefactos de Azure necesarios por capa</h3>
+        <table class="data-table">
+          <thead><tr><th>Capa</th><th>Componente</th><th>Servicio / modelo</th><th>Notas</th></tr></thead>
+          <tbody>
+            <tr><td>Ingesta</td><td>Correos, formularios, otros canales</td><td>Azure Service Bus / Queue</td><td>Infraestructura</td></tr>
+            <tr><td>Preprocesamiento</td><td>Detección de idioma</td><td>Azure AI Language</td><td>Infraestructura</td></tr>
+            <tr><td>Preprocesamiento</td><td>OCR de adjuntos</td><td>Azure AI Document Intelligence</td><td>Infraestructura</td></tr>
+            <tr><td><strong>Clasificación</strong></td><td>Tipo, tipología y asunto con salida estructurada</td><td><strong>MAI-1</strong></td><td><strong>Fijado para este prototipo</strong></td></tr>
+            <tr><td>Búsqueda</td><td>Índice de reglas de jurisdicción versionadas</td><td>Azure AI Search (+ embeddings de Foundry)</td><td>Infraestructura</td></tr>
+            <tr><td><strong>Competencia</strong></td><td>Determina entidad competente citando la regla</td><td><strong>MAI-DS-R1</strong> (agente RAG)</td><td><strong>Mayor riesgo del flujo</strong> — validar con conjunto dorado</td></tr>
+            <tr><td>Enrutamiento</td><td>Asignación de caso a equipo/cola</td><td>Agent tools/functions + CRM/Ticketing</td><td>Infraestructura</td></tr>
+            <tr><td><strong>Generación de borrador</strong></td><td>Respuesta o recomendación de tratamiento citada</td><td><strong>MAI-1</strong></td><td><strong>Fijado para este prototipo</strong></td></tr>
+            <tr><td>Seguimiento</td><td>Estado, SLA, historial</td><td>Registro de casos (transversal)</td><td>Infraestructura</td></tr>
+            <tr><td>Gobierno</td><td>Seguridad, trazabilidad, cumplimiento</td><td>Microsoft Purview, Entra ID/RBAC, evaluaciones Foundry, auditoría</td><td>Transversal</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="custody-log">
+      <strong>Registro de auditoría (decisiones y acciones)</strong>
+      <ul id="custodyLog"></ul>
+    </div>
+  </main>
+</div>
+
+<footer class="disclaimer">
+  Prototipo de demostración con datos ficticios — no representa casos reales de AMV.
+  Arquitectura de referencia (caso full MAI): Azure Service Bus · Azure AI Language · Azure AI Document Intelligence ·
+  MAI-1 · Azure AI Search · Azure AI Foundry Agent Service · MAI-DS-R1 · CRM/Ticketing · Microsoft Purview.
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="config.js"></script>
+<script>
+/* ---------------------- Mock data (seed / valores de fábrica) ---------------------- */
+const LS_TICKETS = "amv_pqr_cases_v1";
+const LS_RULES = "amv_pqr_rules_v1";
+
+/* ---------------------- Capa de API (modo live) ---------------------- */
+const API = window.AMV_API_BASE || "";
+const LIVE = !!window.AMV_LIVE;
+async function apiGet(path){ const r = await fetch(API + path); if(!r.ok) throw new Error(r.status); return r.json(); }
+async function apiPost(path, body){ const r = await fetch(API + path, {method:"POST", headers:{"Content-Type":"application/json"}, body: body?JSON.stringify(body):null}); if(!r.ok) throw new Error(r.status); return r.json(); }
+
+const SEED_RULES = [
+  { id:"REG-002", entidad:"AMV", texto:"Registro Nacional de Profesionales del Mercado de Valores — verificación de autorización de asesores y operadores.", vigente:true },
+  { id:"REG-014", entidad:"AMV", texto:"Reglamento AMV, Libro III — Conductas de intermediarios de valores: deber de información y mejor ejecución.", vigente:true },
+  { id:"REG-021", entidad:"AMV", texto:"Reglamento de Procedimiento Sancionatorio AMV — acceso y copia de expedientes disciplinarios por parte interesada.", vigente:true },
+  { id:"REG-033", entidad:"Superintendencia Financiera de Colombia", texto:"Régimen de protección al consumidor financiero — reclamaciones sobre productos y servicios de entidades vigiladas por la SFC.", vigente:true },
+  { id:"REG-041", entidad:"Bolsa de Valores de Colombia (bvc)", texto:"Reglamento de la Bolsa de Valores de Colombia — funcionamiento operativo de la plataforma de negociación.", vigente:true },
+];
+
+const SEED_TICKETS = [
+  {
+    id:"PQR-2026-0143", canal:"Correo", fecha:"16/09/2026", hora:"09:12",
+    remitente:"Inversionista persona natural",
+    texto:"Escribo para quejarme porque mi comisionista ejecutó una operación de compra de acciones sin explicarme previamente el riesgo ni las condiciones de la operación, a pesar de haberlo solicitado por escrito.",
+    tipo:"Queja", tipologia:"Conducta de intermediario",
+    asunto:"Posible incumplimiento del deber de información previo a una operación",
+    confClasificacion:91,
+    entidad:"AMV", reglaId:"REG-014", confCompetencia:94,
+    equipo:"Conducta de Mercado · Intermediarios", estado:"Enrutado", slaHoras:48,
+  },
+  {
+    id:"PQR-2026-0144", canal:"Formulario web", fecha:"16/09/2026", hora:"10:35",
+    remitente:"Ciudadano",
+    texto:"Quisiera saber cómo puedo verificar si un asesor de inversión que me contactó por redes sociales está realmente autorizado para operar en el mercado de valores.",
+    tipo:"Consulta", tipologia:"Información general sobre inversión",
+    asunto:"Verificación de autorización de un asesor de inversión",
+    confClasificacion:88,
+    entidad:"AMV", reglaId:"REG-002", confCompetencia:90,
+    equipo:"Atención al Inversionista", estado:"Borrador generado", slaHoras:24,
+  },
+  {
+    id:"PQR-2026-0145", canal:"Correo", fecha:"15/09/2026", hora:"16:04",
+    remitente:"Apoderado de intermediario sancionado",
+    texto:"Solicito copia completa del expediente disciplinario y de la resolución sancionatoria proferida contra mi representado, para efectos de interponer los recursos de ley.",
+    tipo:"Solicitud", tipologia:"Copia de expediente disciplinario",
+    asunto:"Solicitud de copia de resolución sancionatoria",
+    confClasificacion:95,
+    entidad:"AMV", reglaId:"REG-021", confCompetencia:97,
+    equipo:"Secretaría General", estado:"Pendiente revisión", slaHoras:72,
+  },
+  {
+    id:"PQR-2026-0146", canal:"Formulario web", fecha:"14/09/2026", hora:"08:47",
+    remitente:"Cliente de entidad bancaria",
+    texto:"Me están cobrando una cuota de manejo que nunca autoricé en mi cuenta de ahorros y el banco no me ha dado respuesta clara.",
+    tipo:"Queja", tipologia:"Producto o servicio bancario",
+    asunto:"Cobro indebido en cuenta de ahorros",
+    confClasificacion:82,
+    entidad:"Superintendencia Financiera de Colombia", reglaId:"REG-033", confCompetencia:89,
+    equipo:"Traslado a entidad externa", estado:"Cerrado", slaHoras:48,
+  },
+  {
+    id:"PQR-2026-0147", canal:"Otro", fecha:"16/09/2026", hora:"13:58",
+    remitente:"Cliente (canal de chat)",
+    texto:"Un cliente me comentó que un operador estaría inflando artificialmente el precio de una acción antes de la apertura, pero no tengo más detalles ni evidencia.",
+    tipo:"Queja", tipologia:"Conducta de intermediario",
+    asunto:"Presunta manipulación de precio reportada por un cliente",
+    confClasificacion:68,
+    entidad:"AMV", reglaId:"REG-014", confCompetencia:59,
+    equipo:"Pendiente asignación (confianza baja)", estado:"Nuevo", slaHoras:24,
+  },
+];
+
+let TICKETS = [];
+let RULES = [];
+let currentTicketId = null;
+let editingTicketId = null;
+let editingRuleId = null;
+const audit = [];
+
+function escapeHtml(str){
+  return String(str ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ---------------------- Persistencia local (localStorage) ---------------------- */
+async function loadData(){
+  if(LIVE){
+    try{
+      TICKETS = await apiGet("/api/casos");
+      RULES = await apiGet("/api/reglas");
+      return;
+    }catch(err){
+      console.warn("API no disponible, usando datos locales", err);
+    }
+  }
+  const savedTickets = localStorage.getItem(LS_TICKETS);
+  const savedRules = localStorage.getItem(LS_RULES);
+  TICKETS = savedTickets ? JSON.parse(savedTickets) : JSON.parse(JSON.stringify(SEED_TICKETS));
+  RULES = savedRules ? JSON.parse(savedRules) : JSON.parse(JSON.stringify(SEED_RULES));
+}
+
+function saveData(){
+  localStorage.setItem(LS_TICKETS, JSON.stringify(TICKETS));
+  localStorage.setItem(LS_RULES, JSON.stringify(RULES));
+}
+
+function resetDemoData(){
+  if(!confirm("¿Restaurar los datos de ejemplo? Se perderán los cambios guardados localmente.")) return;
+  localStorage.removeItem(LS_TICKETS);
+  localStorage.removeItem(LS_RULES);
+  loadData();
+  currentTicketId = null;
+  renderAll();
+  logAudit("Datos de ejemplo restaurados (almacenamiento local reiniciado)");
+}
+
+function renderAll(){
+  renderCaseList();
+  runSearch();
+  renderTicketTable();
+  renderRuleTable();
+}
+
+/* ---------------------- Init ---------------------- */
+async function init(){
+  await loadData();
+  renderAll();
+  if(LIVE) logAudit("Modo live: datos cargados desde la API (" + API + ")");
+  document.getElementById("caseList").addEventListener("click", e => {
+    const li = e.target.closest("li[data-id]");
+    if(li) openTicket(li.dataset.id);
+  });
+  document.getElementById("ticketTable").addEventListener("click", e => handleTableAction(e, "ticket"));
+  document.getElementById("ruleTable").addEventListener("click", e => handleTableAction(e, "rule"));
+  logAudit("Sesión iniciada por analista (rol: Triage de PQR)");
+}
+
+function handleTableAction(e, kind){
+  const btn = e.target.closest("button[data-action]");
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  if(kind === "ticket"){
+    if(action === "edit") showTicketForm(id);
+    if(action === "delete") deleteTicket(id);
+  } else {
+    if(action === "edit") showRuleForm(id);
+    if(action === "delete") deleteRule(id);
+  }
+}
+
+/* ---------------------- Sidebar: lista de casos ---------------------- */
+function renderCaseList(){
+  const ul = document.getElementById("caseList");
+  ul.innerHTML = TICKETS.map(t => `
+    <li class="${t.id === currentTicketId ? 'active':''}" data-id="${escapeHtml(t.id)}">
+      <span class="case-id">${escapeHtml(t.id)}</span>
+      <span class="case-desc">${escapeHtml(t.asunto)}</span>
+    </li>`).join("");
+}
+
+/* ---------------------- Búsqueda / bandeja ---------------------- */
+function confBand(c){
+  if(c >= 85) return {cls:"conf-high", label:"Alta"};
+  if(c >= 65) return {cls:"conf-mid", label:"Media"};
+  return {cls:"conf-low", label:"Baja"};
+}
+
+function runSearch(){
+  const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  const tipoFilter = document.getElementById("filterTipo").value;
+  const canalFilter = document.getElementById("filterCanal").value;
+  const confFilter = document.getElementById("filterConfidence").value;
+
+  let results = TICKETS.filter(t => {
+    const matchesQuery = !q || t.asunto.toLowerCase().includes(q) || t.remitente.toLowerCase().includes(q) || t.id.toLowerCase().includes(q) || t.texto.toLowerCase().includes(q);
+    const matchesTipo = !tipoFilter || t.tipo === tipoFilter;
+    const matchesCanal = !canalFilter || t.canal === canalFilter;
+    const band = confBand(t.confClasificacion);
+    const matchesConf = !confFilter || band.cls === "conf-" + confFilter;
+    return matchesQuery && matchesTipo && matchesCanal && matchesConf;
+  });
+
+  renderResults(results, q);
+  logAudit(`Búsqueda ejecutada en la bandeja: "${q || '(vacía)'}" → ${results.length} caso(s)`);
+}
+
+function highlightText(text, term){
+  const escaped = escapeHtml(text);
+  if(!term) return escaped;
+  const re = new RegExp("(" + escapeHtml(term).replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ")", "ig");
+  return escaped.replace(re, "<mark>$1</mark>");
+}
+
+function renderResults(results, q){
+  const container = document.getElementById("resultsContainer");
+  if(results.length === 0){
+    container.innerHTML = `<div class="empty-state">No se encontraron casos para esta búsqueda.</div>`;
+    return;
+  }
+  container.innerHTML = results.map(t => {
+    const band = confBand(t.confClasificacion);
+    return `
+    <div class="result-item" onclick="openTicket('${t.id}')">
+      <div class="result-meta">
+        <span class="badge tipo">${escapeHtml(t.tipo)}</span>
+        <span class="badge canal">${escapeHtml(t.canal)}</span>
+        <span class="badge time">${escapeHtml(t.fecha)} · ${escapeHtml(t.hora)}</span>
+        <span class="badge ${band.cls}">Confianza ${band.label} (${t.confClasificacion}%)</span>
+        <span class="badge estado">${escapeHtml(t.estado)}</span>
+      </div>
+      <div class="result-text"><strong>${escapeHtml(t.id)}</strong> — ${highlightText(t.asunto, q)}</div>
+    </div>`;
+  }).join("");
+}
+
+/* ---------------------- Detail ---------------------- */
+function openTicket(id){
+  currentTicketId = id;
+  const t = TICKETS.find(x => x.id === id);
+  const rule = RULES.find(r => r.id === t.reglaId);
+  const container = document.getElementById("detailContainer");
+  const bandCla = confBand(t.confClasificacion);
+  const bandComp = confBand(t.confCompetencia);
+
+  const pillClass = c => c >= 85 ? "high" : (c >= 65 ? "mid" : "low");
+
+  container.innerHTML = `
+    <div class="segment-detail">
+      <div>
+        <div class="transcript-box">
+          <strong>${escapeHtml(t.id)} · ${escapeHtml(t.canal)} · ${escapeHtml(t.fecha)} ${escapeHtml(t.hora)}</strong><br>
+          <span style="color:var(--muted);">Remitente: ${escapeHtml(t.remitente)}</span><br><br>
+          ${escapeHtml(t.texto)}
+        </div>
+      </div>
+      <div>
+        <div class="panel" style="padding:14px;margin-bottom:14px;">
+          <h3 style="margin:0 0 6px;font-size:12.5px;color:var(--muted);text-transform:uppercase;">
+            Clasificación <span style="color:var(--mai-text);">· MAI-1</span>
+          </h3>
+          <div class="card-field"><span class="field-name">Tipo</span><span class="field-value">${escapeHtml(t.tipo)}</span></div>
+          <div class="card-field"><span class="field-name">Tipología</span><span class="field-value">${escapeHtml(t.tipologia)}</span></div>
+          <div class="card-field"><span class="field-name">Asunto</span><span class="field-value">${escapeHtml(t.asunto)}<span class="conf-pill ${pillClass(t.confClasificacion)}">${t.confClasificacion}%</span></span></div>
+        </div>
+
+        <div class="panel" style="padding:14px;margin-bottom:14px;">
+          <h3 style="margin:0 0 6px;font-size:12.5px;color:var(--muted);text-transform:uppercase;">
+            Competencia <span style="color:var(--mai-text);">· MAI-DS-R1 (RAG)</span>
+          </h3>
+          <div class="card-field"><span class="field-name">Entidad competente</span><span class="field-value">${escapeHtml(t.entidad)}<span class="conf-pill ${pillClass(t.confCompetencia)}">${t.confCompetencia}%</span></span></div>
+          <div class="card-field"><span class="field-name">Regla citada</span><span class="field-value">${cite(t.reglaId)}</span></div>
+          ${rule ? `<div class="corr-box ${t.confCompetencia >= 65 ? 'match':'nomatch'}">${escapeHtml(rule.texto)}</div>` : ""}
+          ${t.confCompetencia < 65 ? `<div class="corr-box nomatch">⚠️ Confianza de competencia por debajo del umbral — el caso se deriva a revisión manual antes de enrutar.</div>` : ""}
+        </div>
+
+        <div class="panel" style="padding:14px;">
+          <h3 style="margin:0 0 6px;font-size:12.5px;color:var(--muted);text-transform:uppercase;">Enrutamiento</h3>
+          <div class="card-field"><span class="field-name">Equipo / cola</span><span class="field-value">${escapeHtml(t.equipo)}</span></div>
+          <div class="card-field"><span class="field-name">Estado</span><span class="field-value">${escapeHtml(t.estado)}</span></div>
+          <div class="card-field"><span class="field-name">SLA</span><span class="field-value">${t.slaHoras} h</span></div>
+        </div>
+      </div>
+    </div>
+  `;
+  switchTab("tab-detail");
+  renderCaseList();
+  logAudit(`Analista abrió el caso ${id} (clasificación ${t.confClasificacion}% · competencia ${t.confCompetencia}%)`);
+}
+
+/* ---------------------- Tabs ---------------------- */
+function switchTab(tabId){
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
+  document.querySelectorAll(".tab-content").forEach(c => c.classList.toggle("active", c.id === tabId));
+  if(tabId === "tab-arch") renderArchDiagrams();
+}
+
+let archRendered = false;
+async function renderArchDiagrams(){
+  if(archRendered || typeof mermaid === "undefined") return;
+  archRendered = true;
+  mermaid.initialize({
+    startOnLoad:false, theme:"base", securityLevel:"loose",
+    themeVariables:{ fontFamily:"Segoe UI, Arial, sans-serif", primaryColor:"#eef1fa", primaryBorderColor:"#1b2a4a", primaryTextColor:"#27324a", lineColor:"#6b7488" },
+  });
+  try{
+    await mermaid.run({ nodes: document.querySelectorAll("#tab-arch .mermaid") });
+    logAudit("Diagrama de arquitectura renderizado");
+  }catch(err){
+    console.error("Error al renderizar diagramas Mermaid:", err);
+  }
+}
+
+/* ---------------------- Borrador de respuesta (MAI-1) ---------------------- */
+async function generateSynthesis(){
+  if(!currentTicketId){
+    alert("Selecciona primero un caso en la Bandeja de PQR o en Detalle y clasificación.");
+    return;
+  }
+  const t = TICKETS.find(x => x.id === currentTicketId);
+  const rule = RULES.find(r => r.id === t.reglaId);
+  const btn = document.getElementById("genBtn");
+  const status = document.getElementById("genStatus");
+  const reportContainer = document.getElementById("reportContainer");
+  btn.disabled = true;
+  status.innerHTML = `<span class="spinner"></span> Orquestando con Foundry Agent Service · caso ${escapeHtml(t.id)} · MAI-1 redactando…`;
+  reportContainer.innerHTML = "";
+  logAudit(`Solicitud de borrador de respuesta enviada al Foundry Agent Service para ${t.id} (modelo: MAI-1)`);
+
+  if(LIVE){
+    try{
+      const res = await apiPost(`/api/casos/${encodeURIComponent(t.id)}/analizar`);
+      status.textContent = "";
+      btn.disabled = false;
+      Object.assign(t, res.caso);
+      const gnd = res.borrador.groundedness;
+      const citas = (res.borrador.citas || []).map(c => cite(c)).join(" ");
+      reportContainer.innerHTML = `
+        <div class="report-box" id="reportBox">${escapeHtml(res.borrador.texto).replace(/\n/g,"<br>")}</div>
+        <div class="report-footer">
+          <span class="groundedness">📊 Groundedness (evaluación Foundry): <strong>${gnd}%</strong> · ${citas || "sin citas"}</span>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <button class="btn btn-secondary" onclick="toggleEdit()">✏️ Editar</button>
+            <button class="btn btn-secondary" onclick="exportReport()">⬇️ Exportar respuesta</button>
+          </div>
+        </div>
+        <div class="review-check">
+          <input type="checkbox" id="reviewedCheck" onchange="onReviewToggle(this)">
+          <label for="reviewedCheck">Revisado y aprobado por el analista (obligatorio antes de enviar al ciudadano)</label>
+        </div>`;
+      renderCaseList();
+      logAudit(`Pipeline AMV generó borrador para ${t.id} (groundedness ${gnd}%, revisión ${res.requiereRevision?"requerida":"no requerida"})`);
+    }catch(err){
+      status.textContent = "";
+      btn.disabled = false;
+      reportContainer.innerHTML = `<div class="report-box">No se pudo contactar la API (${escapeHtml(String(err))}).</div>`;
+    }
+    return;
+  }
+
+  setTimeout(() => {
+    status.textContent = "";
+    btn.disabled = false;
+
+    const report = `Estimado(a) <strong>${escapeHtml(t.remitente)}</strong>,<br><br>
+    En relación con su <strong>${t.tipo.toLowerCase()}</strong> radicada bajo el caso
+    <strong>${escapeHtml(t.id)}</strong> sobre "${escapeHtml(t.asunto)}", le informamos que, tras el análisis
+    de clasificación (confianza ${t.confClasificacion}%) ${cite(t.reglaId)}, el asunto fue tipificado como
+    <strong>${escapeHtml(t.tipologia)}</strong>.
+    <br><br>
+    De acuerdo con nuestras reglas de jurisdicción vigentes, la entidad competente para atender este caso es
+    <strong>${escapeHtml(t.entidad)}</strong> (confianza ${t.confCompetencia}%), con fundamento en la regla
+    ${cite(t.reglaId)}${rule ? `: "${escapeHtml(rule.texto)}"` : ""}.
+    <br><br>
+    Su caso ha sido asignado al equipo <strong>${escapeHtml(t.equipo)}</strong>, con un plazo de atención de
+    <strong>${t.slaHoras} horas</strong>. Le mantendremos informado sobre el avance y cualquier información
+    adicional que se requiera de su parte.
+    <br><br>
+    <em>Nota interna: este es un borrador generado por MAI-1; requiere revisión y aprobación del analista antes
+    de enviarse al remitente, especialmente si la confianza de clasificación o competencia es media/baja.</em>`;
+
+    reportContainer.innerHTML = `
+      <div class="report-box" id="reportBox">${report}</div>
+      <div class="report-footer">
+        <span class="groundedness">📊 Groundedness (evaluación Foundry): <strong>93%</strong> · 1 regla citada y verificada</span>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <button class="btn btn-secondary" onclick="toggleEdit()">✏️ Editar</button>
+          <button class="btn btn-secondary" onclick="exportReport()">⬇️ Exportar respuesta</button>
+        </div>
+      </div>
+      <div class="review-check">
+        <input type="checkbox" id="reviewedCheck" onchange="onReviewToggle(this)">
+        <label for="reviewedCheck">Revisado y aprobado por el analista (obligatorio antes de enviar al ciudadano)</label>
+      </div>
+    `;
+    logAudit(`MAI-1 generó borrador de respuesta para ${t.id} (groundedness 93%) — pendiente de revisión humana`);
+  }, 1400);
+}
+
+function cite(ruleId){
+  return `<span class="cite" onclick="viewRule('${ruleId}')" title="Ver regla de jurisdicción">Ver regla ${escapeHtml(ruleId)}</span>`;
+}
+
+function viewRule(ruleId){
+  switchTab("tab-manage");
+  renderRuleTable();
+  setTimeout(() => {
+    const row = document.querySelector(`#ruleTable tr[data-rule-id="${ruleId}"]`);
+    if(row){
+      row.scrollIntoView({behavior:"smooth", block:"center"});
+      row.classList.add("flash");
+      setTimeout(() => row.classList.remove("flash"), 1600);
+    }
+  }, 50);
+  logAudit(`Analista consultó la regla de jurisdicción ${ruleId}`);
+}
+
+function toggleEdit(){
+  const box = document.getElementById("reportBox");
+  if(box.tagName.toLowerCase() === "div"){
+    const text = box.innerText;
+    const ta = document.createElement("textarea");
+    ta.id = "reportBox";
+    ta.value = text;
+    box.replaceWith(ta);
+    logAudit("Analista editó manualmente el borrador de respuesta");
+  }
+}
+
+function exportReport(){
+  logAudit("Respuesta exportada por el analista (PDF/correo simulado)");
+  alert("Prototipo: en la solución real, esto exporta la respuesta con citas, metadatos de auditoría y el registro del analista que aprobó.");
+}
+
+function onReviewToggle(el){
+  logAudit(el.checked ? "Analista marcó el borrador como REVISADO Y APROBADO" : "Analista desmarcó la aprobación del borrador");
+}
+
+/* ---------------------- CRUD: casos PQR ---------------------- */
+function renderTicketTable(){
+  const rows = TICKETS.map(t => `
+    <tr>
+      <td><strong>${escapeHtml(t.id)}</strong></td>
+      <td>${escapeHtml(t.tipo)}</td>
+      <td>${escapeHtml(t.canal)}</td>
+      <td>${escapeHtml(t.entidad)}</td>
+      <td>${escapeHtml(t.estado)}</td>
+      <td>${t.confClasificacion}% / ${t.confCompetencia}%</td>
+      <td class="actions">
+        <button class="edit" data-action="edit" data-id="${escapeHtml(t.id)}">✏️ Editar</button>
+        <button class="delete" data-action="delete" data-id="${escapeHtml(t.id)}">🗑️ Eliminar</button>
+      </td>
+    </tr>`).join("");
+  document.getElementById("ticketTable").innerHTML = `
+    <thead><tr><th>ID</th><th>Tipo</th><th>Canal</th><th>Entidad</th><th>Estado</th><th>Conf. clasif./compet.</th><th>Acciones</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="7" class="empty-state">Sin casos.</td></tr>'}</tbody>`;
+}
+
+function showTicketForm(id){
+  editingTicketId = id ?? null;
+  const t = id ? TICKETS.find(x => x.id === id) : {
+    id:"", canal:"Correo", fecha:"", hora:"", remitente:"", texto:"",
+    tipo:"Queja", tipologia:"", asunto:"", confClasificacion:80,
+    entidad:"AMV", reglaId: RULES[0] ? RULES[0].id : "", confCompetencia:80,
+    equipo:"", estado:"Nuevo", slaHoras:48,
+  };
+  const ruleOptions = RULES.map(r => `<option value="${escapeHtml(r.id)}" ${r.id===t.reglaId?"selected":""}>${escapeHtml(r.id)} — ${escapeHtml(r.entidad)}</option>`).join("");
+  document.getElementById("ticketFormWrap").innerHTML = `
+    <form class="mini-form" onsubmit="return saveTicketForm(event)">
+      <label>ID del caso <input id="tf_id" required value="${escapeHtml(t.id)}" ${id ? "readonly" : ""} placeholder="PQR-2026-0000"></label>
+      <label>Canal
+        <select id="tf_canal">
+          <option ${t.canal==="Correo"?"selected":""}>Correo</option>
+          <option ${t.canal==="Formulario web"?"selected":""}>Formulario web</option>
+          <option ${t.canal==="Otro"?"selected":""}>Otro</option>
+        </select>
+      </label>
+      <label>Fecha <input id="tf_fecha" required value="${escapeHtml(t.fecha)}" placeholder="DD/MM/AAAA"></label>
+      <label>Hora <input id="tf_hora" required value="${escapeHtml(t.hora)}" placeholder="HH:MM"></label>
+      <label class="full">Remitente <input id="tf_remitente" required value="${escapeHtml(t.remitente)}" placeholder="Nombre o rol del remitente"></label>
+      <label class="full">Texto de la PQR
+        <textarea id="tf_texto" required placeholder="Texto de la queja/consulta/solicitud…">${escapeHtml(t.texto)}</textarea>
+      </label>
+
+      <label>Tipo
+        <select id="tf_tipo">
+          <option ${t.tipo==="Queja"?"selected":""}>Queja</option>
+          <option ${t.tipo==="Consulta"?"selected":""}>Consulta</option>
+          <option ${t.tipo==="Solicitud"?"selected":""}>Solicitud</option>
+        </select>
+      </label>
+      <label>Tipología <input id="tf_tipologia" required value="${escapeHtml(t.tipologia)}" placeholder="Conducta de intermediario…"></label>
+      <label class="full">Asunto <input id="tf_asunto" required value="${escapeHtml(t.asunto)}" placeholder="Resumen del asunto"></label>
+      <label>Confianza clasificación (%) <input id="tf_confcla" type="number" min="0" max="100" required value="${t.confClasificacion}"></label>
+
+      <label>Entidad competente <input id="tf_entidad" required value="${escapeHtml(t.entidad)}" placeholder="AMV, SFC, bvc…"></label>
+      <label>Regla citada
+        <select id="tf_regla">${ruleOptions}</select>
+      </label>
+      <label>Confianza competencia (%) <input id="tf_confcomp" type="number" min="0" max="100" required value="${t.confCompetencia}"></label>
+      <label>SLA (horas) <input id="tf_sla" type="number" min="1" required value="${t.slaHoras}"></label>
+
+      <label>Equipo / cola <input id="tf_equipo" required value="${escapeHtml(t.equipo)}" placeholder="Equipo asignado"></label>
+      <label>Estado
+        <select id="tf_estado">
+          ${["Nuevo","Clasificado","Enrutado","Borrador generado","Pendiente revisión","Aprobado","Enviado","Cerrado"].map(s => `<option ${t.estado===s?"selected":""}>${s}</option>`).join("")}
+        </select>
+      </label>
+
+      <div class="mini-form-actions">
+        <button type="button" class="btn btn-secondary" onclick="hideTicketForm()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">${id ? "Guardar cambios" : "Crear caso"}</button>
+      </div>
+    </form>`;
+}
+
+function hideTicketForm(){
+  editingTicketId = null;
+  document.getElementById("ticketFormWrap").innerHTML = "";
+}
+
+function saveTicketForm(e){
+  e.preventDefault();
+  const id = document.getElementById("tf_id").value.trim();
+  const data = {
+    id,
+    canal: document.getElementById("tf_canal").value,
+    fecha: document.getElementById("tf_fecha").value.trim(),
+    hora: document.getElementById("tf_hora").value.trim(),
+    remitente: document.getElementById("tf_remitente").value.trim(),
+    texto: document.getElementById("tf_texto").value.trim(),
+    tipo: document.getElementById("tf_tipo").value,
+    tipologia: document.getElementById("tf_tipologia").value.trim(),
+    asunto: document.getElementById("tf_asunto").value.trim(),
+    confClasificacion: Number(document.getElementById("tf_confcla").value),
+    entidad: document.getElementById("tf_entidad").value.trim(),
+    reglaId: document.getElementById("tf_regla").value,
+    confCompetencia: Number(document.getElementById("tf_confcomp").value),
+    slaHoras: Number(document.getElementById("tf_sla").value),
+    equipo: document.getElementById("tf_equipo").value.trim(),
+    estado: document.getElementById("tf_estado").value,
+  };
+  if(!data.id || !data.fecha || !data.hora || !data.remitente || !data.texto || !data.tipologia || !data.asunto || !data.entidad || !data.equipo){
+    alert("Completa todos los campos obligatorios del caso.");
+    return false;
+  }
+
+  if(editingTicketId){
+    const idx = TICKETS.findIndex(x => x.id === editingTicketId);
+    TICKETS[idx] = data;
+    logAudit(`Analista editó el caso ${id}`);
+  } else {
+    if(TICKETS.some(x => x.id === id)){ alert("Ya existe un caso con ese ID."); return false; }
+    TICKETS.push(data);
+    logAudit(`Analista creó el caso ${id}`);
+  }
+  saveData();
+  hideTicketForm();
+  renderCaseList();
+  renderTicketTable();
+  runSearch();
+  return false;
+}
+
+function deleteTicket(id){
+  if(!confirm(`¿Eliminar el caso ${id}? Esta acción no se puede deshacer.`)) return;
+  TICKETS = TICKETS.filter(t => t.id !== id);
+  if(currentTicketId === id) currentTicketId = null;
+  saveData();
+  renderCaseList();
+  renderTicketTable();
+  runSearch();
+  logAudit(`Analista eliminó el caso ${id}`);
+}
+
+/* ---------------------- CRUD: reglas de jurisdicción ---------------------- */
+function renderRuleTable(){
+  const rows = RULES.map(r => `
+    <tr data-rule-id="${escapeHtml(r.id)}">
+      <td><strong>${escapeHtml(r.id)}</strong></td>
+      <td>${escapeHtml(r.entidad)}</td>
+      <td style="max-width:360px;">${escapeHtml(r.texto)}</td>
+      <td>${r.vigente ? "✅" : "—"}</td>
+      <td class="actions">
+        <button class="edit" data-action="edit" data-id="${escapeHtml(r.id)}">✏️ Editar</button>
+        <button class="delete" data-action="delete" data-id="${escapeHtml(r.id)}">🗑️ Eliminar</button>
+      </td>
+    </tr>`).join("");
+  document.getElementById("ruleTable").innerHTML = `
+    <thead><tr><th>ID</th><th>Entidad</th><th>Texto</th><th>Vigente</th><th>Acciones</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="5" class="empty-state">Sin reglas.</td></tr>'}</tbody>`;
+}
+
+function showRuleForm(id){
+  editingRuleId = id ?? null;
+  const r = id ? RULES.find(x => x.id === id) : { id:"", entidad:"", texto:"", vigente:true };
+  document.getElementById("ruleFormWrap").innerHTML = `
+    <form class="mini-form" onsubmit="return saveRuleForm(event)">
+      <label>ID de la regla <input id="rf_id" required value="${escapeHtml(r.id)}" ${id ? "readonly" : ""} placeholder="REG-000"></label>
+      <label>Entidad <input id="rf_entidad" required value="${escapeHtml(r.entidad)}" placeholder="AMV, SFC, bvc…"></label>
+      <label class="checkbox-field full" style="flex-direction:row;">
+        <input type="checkbox" id="rf_vigente" ${r.vigente ? "checked" : ""}> Regla vigente
+      </label>
+      <label class="full">Texto de la regla
+        <textarea id="rf_texto" required placeholder="Texto de la regla de jurisdicción…">${escapeHtml(r.texto)}</textarea>
+      </label>
+      <div class="mini-form-actions">
+        <button type="button" class="btn btn-secondary" onclick="hideRuleForm()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">${id ? "Guardar cambios" : "Crear regla"}</button>
+      </div>
+    </form>`;
+}
+
+function hideRuleForm(){
+  editingRuleId = null;
+  document.getElementById("ruleFormWrap").innerHTML = "";
+}
+
+function saveRuleForm(e){
+  e.preventDefault();
+  const id = document.getElementById("rf_id").value.trim();
+  const entidad = document.getElementById("rf_entidad").value.trim();
+  const texto = document.getElementById("rf_texto").value.trim();
+  const vigente = document.getElementById("rf_vigente").checked;
+  if(!id || !entidad || !texto){ alert("ID, entidad y texto son obligatorios."); return false; }
+
+  if(editingRuleId){
+    const r = RULES.find(x => x.id === editingRuleId);
+    r.entidad = entidad; r.texto = texto; r.vigente = vigente;
+    logAudit(`Analista editó la regla de jurisdicción ${id}`);
+  } else {
+    if(RULES.some(x => x.id === id)){ alert("Ya existe una regla con ese ID."); return false; }
+    RULES.push({ id, entidad, texto, vigente });
+    logAudit(`Analista creó la regla de jurisdicción ${id}`);
+  }
+  saveData();
+  hideRuleForm();
+  renderRuleTable();
+  return false;
+}
+
+function deleteRule(id){
+  if(!confirm(`¿Eliminar la regla ${id}? Esta acción no se puede deshacer.`)) return;
+  RULES = RULES.filter(r => r.id !== id);
+  saveData();
+  renderRuleTable();
+  logAudit(`Analista eliminó la regla de jurisdicción ${id}`);
+}
+
+/* ---------------------- Registro de auditoría ---------------------- */
+function logAudit(msg){
+  const now = new Date();
+  const ts = now.toLocaleTimeString("es-CO", {hour12:false});
+  audit.unshift(`[${ts}] ${msg}`);
+  const ul = document.getElementById("custodyLog");
+  ul.innerHTML = audit.slice(0, 8).map(l => `<li>${l}</li>`).join("");
+}
+
+document.getElementById("searchInput").addEventListener("keydown", e => { if(e.key === "Enter") runSearch(); });
+document.getElementById("filterTipo").addEventListener("change", runSearch);
+document.getElementById("filterCanal").addEventListener("change", runSearch);
+document.getElementById("filterConfidence").addEventListener("change", runSearch);
+
+init();
+</script>
+</body>
+</html>

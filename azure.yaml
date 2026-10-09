@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: amv-pqr
+metadata:
+  template: amv-pqr@1.0.0
+services:
+  api:
+    project: ./backend
+    language: py
+    host: containerapp
+    docker:
+      remoteBuild: true
+  web:
+    project: ./web
+    language: js
+    host: staticwebapp
+    dist: .
